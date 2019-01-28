@@ -30,7 +30,7 @@ import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      findDelegationStakes, findRichmenStakes,
                      followTheSatoshiM)
 import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
-import           Pos.Chain.Update (BlockVersionState (..))
+import           Pos.Chain.Update (BlockVersionState (..), ConsensusEra (..))
 import           Pos.Core (Coin, EpochIndex (..), EpochOrSlot (..), SharedSeed,
                      SlotCount, StakeholderId, crucialSlot, epochIndexL,
                      getEpochOrSlot)
@@ -54,7 +54,7 @@ import           Pos.DB.Lrc (IssuersStakes, LrcConsumer (..), LrcContext (..),
 import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
-import           Pos.DB.Update (getCompetingBVStates)
+import           Pos.DB.Update (getCompetingBVStates, getConsensusEra)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..), intords)
 import           Pos.Util.Wlog (logDebug, logInfo, logWarning)
@@ -141,6 +141,9 @@ lrcDo
     -> [LrcConsumer m]
     -> m ()
 lrcDo genesisConfig epoch consumers = do
+
+    era <- getConsensusEra
+
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile genesisHash upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
@@ -155,26 +158,35 @@ lrcDo genesisConfig epoch consumers = do
     blundsToRollback <- DB.loadBlundsFromTipWhile genesisHash whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
-    seed <- sscCalculateSeed (configBlockVersionData genesisConfig) epoch >>= \case
-        Right s -> do
-            logInfo $ sformat
-                ("Calculated seed for epoch "%build%" successfully") epoch
-            return s
-        Left _ -> do
-            -- Critical error means that the system is in dangerous state.
-            -- For now let's consider all errors critical, maybe we'll revise it later.
-            unless (noReportNoSecretsForEpoch1 && epoch == 1) $ do
-                whenJustM (view misbehaviorMetrics) $ liftIO .
-                    Metrics.inc . _mmSscFailures
-            getSeed (epoch - 1) >>=
-                maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
-    putSeed epoch seed
-    -- Roll back to the crucial slot and calculate richmen, etc.
-    withBlocksRolledBack blundsToRollbackNE $ do
-        issuersComputationDo epoch
-        richmenComputationDo epoch consumers
-        DB.sanityCheckDB $ configGenesisData genesisConfig
-        leadersComputationDo (configEpochSlots genesisConfig) epoch seed
+    case era of
+        Original -> do
+            seed <- sscCalculateSeed (configBlockVersionData genesisConfig) epoch >>= \case
+                Right s -> do
+                    logInfo $ sformat
+                        ("Calculated seed for epoch "%build%" successfully") epoch
+                    return s
+                Left _ -> do
+                    -- Critical error means that the system is in dangerous state.
+                    -- For now let's consider all errors critical, maybe we'll revise it later.
+                    unless (noReportNoSecretsForEpoch1 && epoch == 1) $ do
+                        whenJustM (view misbehaviorMetrics) $ liftIO .
+                            Metrics.inc . _mmSscFailures
+                    getSeed (epoch - 1) >>=
+                        maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
+            putSeed epoch seed
+            -- Roll back to the crucial slot and calculate richmen, etc.
+            withBlocksRolledBack blundsToRollbackNE $ do
+                issuersComputationDo epoch
+                richmenComputationDo epoch consumers
+                DB.sanityCheckDB $ configGenesisData genesisConfig
+                leadersComputationDo (configEpochSlots genesisConfig) epoch seed
+
+        OBFT _ -> do
+            -- @intricate: Document this change.
+            withBlocksRolledBack blundsToRollbackNE $ do
+                issuersComputationDo epoch
+                richmenComputationDo epoch consumers
+                DB.sanityCheckDB $ configGenesisData genesisConfig
   where
     genesisHash = configGenesisHash genesisConfig
     atLeastKNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
