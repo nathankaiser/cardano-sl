@@ -31,7 +31,7 @@ import           Universum
 
 import           Control.Monad ((>=>))
 import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
-import           Data.Aeson (FromJSON (..))
+import           Data.Aeson (FromJSON (..), ToJSON(toJSON), Value)
 import           Data.ASN1.OID (OIDable (..))
 import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod,
                      timeAdd)
@@ -76,6 +76,9 @@ data TLSConfiguration = TLSConfiguration
 instance FromJSON TLSConfiguration where
     parseJSON = Aeson.genericParseJSON (aesonDropPrefix "tls")
 
+instance ToJSON TLSConfiguration where
+    toJSON = Aeson.genericToJSON (aesonDropPrefix "tls")
+
 -- | Output directories configuration
 data DirConfiguration = DirConfiguration
     { outDirServer  :: FilePath
@@ -92,6 +95,9 @@ data CertConfiguration = CertConfiguration
 
 instance FromJSON CertConfiguration where
     parseJSON = Aeson.genericParseJSON (aesonDropPrefix "cert")
+
+instance ToJSON CertConfiguration where
+    toJSON = Aeson.genericToJSON (aesonDropPrefix "cert")
 
 -- | Foreign Server Certificate Configuration (SANS extra options)
 data ServerConfiguration = ServerConfiguration
@@ -112,6 +118,12 @@ instance FromJSON ServerConfiguration where
             in
                 maybe (fail errMsg) parseJSON . HM.lookup "altDNS"
 
+instance ToJSON ServerConfiguration where
+    toJSON (ServerConfiguration cfg altnames) = Aeson.Object $ HM.insert "altDNS" (toJSON altnames) (deobj (toJSON cfg))
+      where
+        deobj :: Value -> HashMap Text Value
+        deobj (Aeson.Object hm) = hm
+        deobj _ = mempty -- TODO, handle this better
 
 --
 -- Description of Certificates
