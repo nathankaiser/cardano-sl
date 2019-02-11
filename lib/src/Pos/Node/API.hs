@@ -688,11 +688,13 @@ type API =
     :<|>
         InfoAPI
     :<|>
-        Summary "Version of the next update (404 if none)"
+        Tag "Next update" 'NoTagDescription
+        :> Summary "Version of the next update (404 if none)"
         :> "next-update"
         :> Get '[ValidJSON] (APIResponse (V1 Core.SoftwareVersion))
     :<|>
-        Summary "Restart the underlying node software."
+        Tag "Restart" 'NoTagDescription
+        :> Summary "Restart the underlying node software."
         :> "restart-node"
         :> Post '[ValidJSON] NoContent
 
