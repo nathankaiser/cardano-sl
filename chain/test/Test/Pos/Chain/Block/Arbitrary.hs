@@ -469,7 +469,9 @@ genHeaderAndParams pm era = do
         params = Block.VerifyHeaderParams
             { Block.vhpPrevHeader = prev
             , Block.vhpCurrentSlot = randomSlotBeforeThisHeader
-            , Block.vhpLeaders = case era of
+            , Block.vhpLeaders =
+              -- trace ("\n" <> show (Core.getSlotCount dummyEpochSlots, thisEpochStartIndex, thisHeadersEpoch) <> "\n" :: Text) .
+              case era of
                 Original         -> OriginalLeaders <$> thisEpochLeaderSchedule
                 OBFT ObftStrict  -> ObftStrictLeaders <$> thisEpochLeaderSchedule
                 OBFT ObftLenient -> do
