@@ -242,7 +242,7 @@ ghc-options:
   cardano-sl-auxx:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-binary-test:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-chain:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain:             -fwarn-redundant-constraints
   cardano-sl-chain-test:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-client:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-core:              -Wall -Werror -Wcompat -fwarn-redundant-constraints

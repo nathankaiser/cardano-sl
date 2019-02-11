@@ -14,11 +14,14 @@ import qualified Test.Pos.Chain.Txp.Json
 import qualified Test.Pos.Chain.Update.Bi
 import qualified Test.Pos.Chain.Update.Json
 import           Test.Pos.Util.Tripping (runTests)
+import           Test.Pos.Chain.Block.BlockSpec (spec2)
 
 main :: IO ()
 main = do
-    hspec spec
-    runTests
+    hspec spec2
+    when False $ do
+      hspec spec
+      runTests
         [ Test.Pos.Chain.Block.Bi.tests
         , Test.Pos.Chain.Delegation.Bi.tests
         , Test.Pos.Chain.Genesis.Json.tests

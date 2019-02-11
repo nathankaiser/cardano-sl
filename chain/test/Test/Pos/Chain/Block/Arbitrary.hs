@@ -433,7 +433,7 @@ genHeaderAndParams pm era = do
         -- drop all all leaders of headers from previous epochs.
         thisEpochStartIndex = fromIntegral dummyEpochSlots *
                                 fromIntegral (header ^. Core.epochIndexL)
-        thisHeadersEpoch = drop thisEpochStartIndex leaders
+        thisHeadersEpoch = drop (min 0 thisEpochStartIndex) leaders
         -- A helper function. Given integers 'x' and 'y', it chooses a
         -- random integer in the interval [x, y]
         betweenXAndY :: Random a => a -> a -> a
@@ -469,7 +469,9 @@ genHeaderAndParams pm era = do
         params = Block.VerifyHeaderParams
             { Block.vhpPrevHeader = prev
             , Block.vhpCurrentSlot = randomSlotBeforeThisHeader
-            , Block.vhpLeaders = case era of
+            , Block.vhpLeaders =
+              -- trace ("\n" <> show (Core.getSlotCount dummyEpochSlots, thisEpochStartIndex, thisHeadersEpoch) <> "\n" :: Text) .
+              case era of
                 Original         -> OriginalLeaders <$> thisEpochLeaderSchedule
                 OBFT ObftStrict  -> ObftStrictLeaders <$> thisEpochLeaderSchedule
                 OBFT ObftLenient -> do
