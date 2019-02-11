@@ -666,14 +666,12 @@ instance BuildableSafeGen NodeSettings where
 
 
 type SettingsAPI =
-    Tag "Settings" 'NoTagDescription
-        :> "node-settings"
+        "node-settings"
         :> Summary "Retrieves the static settings for this node."
         :> Get '[ValidJSON] (APIResponse NodeSettings)
 
 type InfoAPI =
-        Tag "Info" 'NoTagDescription
-            :> "node-info"
+            "node-info"
             :> Summary "Retrieves the dynamic information for this node."
             :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
             :> Get '[ValidJSON] (APIResponse NodeInfo)
@@ -683,20 +681,19 @@ instance HasCustomQueryFlagDescription "force_ntp_check" where
 
 -- The API definition is down here for now due to TH staging restrictions. Will
 -- relocate other stuff into it's own module when the extraction is complete.
-type API =
-        SettingsAPI
+type API = (Tag "Node Monitoring API" 'NoTagDescription) :>
+        (SettingsAPI
     :<|>
         InfoAPI
     :<|>
-        Tag "Next update" 'NoTagDescription
-        :> Summary "Version of the next update (404 if none)"
+        Summary "Version of the next update (404 if none)"
         :> "next-update"
         :> Get '[ValidJSON] (APIResponse (V1 Core.SoftwareVersion))
     :<|>
-        Tag "Restart" 'NoTagDescription
-        :> Summary "Restart the underlying node software."
+        Summary "Restart the underlying node software."
         :> "restart-node"
         :> Post '[ValidJSON] NoContent
+        )
 
 
 
