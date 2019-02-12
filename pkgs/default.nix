@@ -16945,11 +16945,14 @@ license = stdenv.lib.licenses.mit;
 , base
 , base64-bytestring
 , bytestring
+, cardano-sl-util-test
 , cryptonite
 , data-default-class
 , directory
 , filepath
+, hedgehog
 , hourglass
+, hspec
 , ip
 , QuickCheck
 , stdenv
@@ -16992,9 +16995,14 @@ x509-validation
 yaml
 ];
 testHaskellDepends = [
+aeson
 base
+cardano-sl-util-test
+hedgehog
+hspec
 QuickCheck
 universum
+yaml
 ];
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";

@@ -31,7 +31,7 @@ import           Universum
 
 import           Control.Monad ((>=>))
 import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
-import           Data.Aeson (FromJSON (..), ToJSON(toJSON), Value)
+import           Data.Aeson (FromJSON (..), ToJSON (toJSON), Value)
 import           Data.ASN1.OID (OIDable (..))
 import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod,
                      timeAdd)
@@ -123,7 +123,7 @@ instance ToJSON ServerConfiguration where
       where
         deobj :: Value -> HashMap Text Value
         deobj (Aeson.Object hm) = hm
-        deobj _ = mempty -- TODO, handle this better
+        deobj _                 = mempty -- TODO, handle this better
 
 --
 -- Description of Certificates
