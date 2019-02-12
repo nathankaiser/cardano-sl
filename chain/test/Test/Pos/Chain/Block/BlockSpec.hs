@@ -27,7 +27,7 @@ import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
 import qualified Pos.Chain.Block as Block
 import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis (GenesisHash (..))
-import           Pos.Chain.Update (ConsensusEra (..))
+import           Pos.Chain.Update (ConsensusEra (..), ObftConsensusStrictness (..))
 import           Pos.Core (EpochIndex (..), SlotId (..), difficultyL)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
@@ -73,7 +73,9 @@ spec = describe "Block properties" $ modifyMaxSuccess (min 20) $ do
 
 spec2 :: Spec
 spec2 = describe "Slot leaders" $ modifyMaxSuccess (min 20) $
-    prop "Successfully verifies a correct main block header" $ \ b -> b === (b :: Bool)
+    prop "Successfully verifies a correct main block header" $ \ pm  ->
+        forAll (BT.genHeaderAndParams2 pm (OBFT ObftStrict)) $ \ hap ->
+            Block.verifyHeader pm (hapParams hap) (hapHeader hap) === VerSuccess
 
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create

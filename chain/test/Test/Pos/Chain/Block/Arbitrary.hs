@@ -17,6 +17,7 @@ module Test.Pos.Chain.Block.Arbitrary
        , genMainBlockBodyForSlot
        , genMainBlock
        , genHeaderAndParams
+       , genHeaderAndParams2
        , genStubbedBHL
        ) where
 
@@ -34,7 +35,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (ConsensusEraLeaders (..), HeaderHash,
-                     mkMainBlock, mkMainBlockExplicit)
+                     GenericBlockHeader (..), MainConsensusData (..),
+                     mainHeaderLeaderKey, mkMainBlock, mkMainBlockExplicit)
 import qualified Pos.Chain.Block as Block
 import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
@@ -471,6 +473,83 @@ genHeaderAndParams pm era = do
             , Block.vhpCurrentSlot = randomSlotBeforeThisHeader
             , Block.vhpLeaders =
               -- trace ("\n" <> show (Core.getSlotCount dummyEpochSlots, thisEpochStartIndex, thisHeadersEpoch) <> "\n" :: Text) .
+              case era of
+                Original         -> OriginalLeaders <$> thisEpochLeaderSchedule
+                OBFT ObftStrict  -> ObftStrictLeaders <$> thisEpochLeaderSchedule
+                OBFT ObftLenient -> do
+                    ls <- thisEpochLeaderSchedule
+                    pure $ ObftLenientLeaders (Set.fromList (toList ls))
+                                              (Core.BlockCount 5)
+                                              (OldestFirst [])
+            , Block.vhpMaxSize = Just (biSize header)
+            , Block.vhpVerifyNoUnknown = not hasUnknownAttributes
+            , Block.vhpConsensusEra = era
+            }
+    return $ HeaderAndParams params header
+
+genHeaderAndParams2 :: ProtocolMagic -> ConsensusEra -> Gen HeaderAndParams
+genHeaderAndParams2 pm era = do
+    -- This integer is used as a seed to randomly choose a slot down below
+    seed <- arbitrary :: Gen Int
+    startSlot <- Core.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
+    slotCount <- choose (1, 2)
+    (headers, _leaders) <- first reverse . getHeaderList <$>
+        (generateBHL pm era dummyGenesisHash True startSlot slotCount)
+    let num =
+            trace ("\n"
+                <> show headers <> "\n"
+                <> show _leaders <> "\n"
+                <> show (map Block.headerLeaderKey headers :: [Maybe PublicKey]) <> "\n" :: Text) $
+            length headers
+    -- 'skip' is the random number of headers that should be skipped in
+    -- the header chain. This ensures different parts of it are chosen
+    -- each time.
+    skip <- choose (0, num - 1)
+    let atMost2HeadersAndLeaders = take 2 $ drop skip headers
+        (prev, header) =
+            case atMost2HeadersAndLeaders of
+                [h]      -> (Nothing, h)
+                [h1, h2] -> (Just h1, h2)
+                _        -> error "[BlockSpec] the headerchain doesn't have enough headers"
+        -- A helper function. Given integers 'x' and 'y', it chooses a
+        -- random integer in the interval [x, y]
+        betweenXAndY :: Random a => a -> a -> a
+        betweenXAndY x y = fst . randomR (x, y) $ mkStdGen seed
+        -- One of the fields in the 'VerifyHeaderParams' type is 'Just
+        -- SlotId'. The following binding is where it is calculated.
+        randomSlotBeforeThisHeader =
+            case header of
+                -- If the header is of the genesis kind, this field is
+                -- not needed.
+                Block.BlockHeaderGenesis _  -> Nothing
+                -- If it's a main blockheader, then a valid "current"
+                -- SlotId for testing is any with an epoch greater than
+                -- the header's epoch and with any slot index, or any in
+                -- the same epoch but with a greater or equal slot index
+                -- than the header.
+                Block.BlockHeaderMain h -> -- Nothing {-
+                    let (Core.SlotId e s) = view Block.headerSlotL h
+                        rndEpoch :: Core.EpochIndex
+                        rndEpoch = betweenXAndY e maxBound
+                        rndSlotIdx :: Core.LocalSlotIndex
+                        rndSlotIdx = if rndEpoch > e
+                            then betweenXAndY localSlotIndexMinBound (localSlotIndexMaxBound dummyEpochSlots)
+                            else betweenXAndY s (localSlotIndexMaxBound dummyEpochSlots)
+                        rndSlot = Core.SlotId rndEpoch rndSlotIdx
+                    in Just rndSlot
+        hasUnknownAttributes =
+            not . areAttributesKnown $
+            case header of
+                Block.BlockHeaderGenesis h -> h ^. Block.gbhExtra . Block.gehAttributes
+                Block.BlockHeaderMain h    -> h ^. Block.gbhExtra . Block.mehAttributes
+
+        thisEpochLeaderSchedule :: Maybe (NonEmpty (Core.AddressHash PublicKey))
+        thisEpochLeaderSchedule = nonEmpty (mapMaybe (fmap Core.addressHash . Block.headerLeaderKey) atMost2HeadersAndLeaders)
+        params = Block.VerifyHeaderParams
+            { Block.vhpPrevHeader = prev
+            , Block.vhpCurrentSlot = randomSlotBeforeThisHeader
+            , Block.vhpLeaders =
+              -- trace ("\n" <> show (Core.getSlotCount dummyEpochSlots, thisEpochStartIndex, leaders) <> "\n" :: Text) .
               case era of
                 Original         -> OriginalLeaders <$> thisEpochLeaderSchedule
                 OBFT ObftStrict  -> ObftStrictLeaders <$> thisEpochLeaderSchedule

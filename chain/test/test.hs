@@ -18,7 +18,7 @@ import           Test.Pos.Chain.Block.BlockSpec (spec2)
 
 main :: IO ()
 main =
-    if True
+    if False
         then existingTests
         else hspec spec2
 
